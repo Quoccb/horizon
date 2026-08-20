@@ -1317,7 +1317,6 @@ class InstancesTable(tables.DataTable):
                        AttachInterface, DetachInterface, EditInstance,
                        AttachVolume, DetachVolume,
                        UpdateMetadata, DecryptInstancePassword,
-                       ChangeInstancePassword,
                        EditInstanceSecurityGroups,
                        EditPortSecurityGroups,
                        ConsoleLink, LogLink,
@@ -1325,5 +1324,4 @@ class InstancesTable(tables.DataTable):
                        TogglePause, ToggleSuspend, ToggleShelve,
                        ResizeLink, LiveResizeLink, LockInstance, UnlockInstance,
                        SoftRebootInstance, RebootInstance,
-                       MigrateInstance,
                        StopInstance, RebuildInstance, DeleteInstance)
