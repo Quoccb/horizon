@@ -298,8 +298,9 @@ class LiveResizeInstanceForm(forms.SelfHandlingForm):
         if min_value is not None and max_value is not None:
             field.help_text = "%s %s" % (
                 field.help_text or "",
-                range_text % {'min': min_value, 'max': max_value}
-            ).strip()
+                range_text % {'min': min_value, 'max': max_value},
+            )
+            field.help_text = field.help_text.strip()
 
     def clean(self):
         cleaned_data = super().clean()
