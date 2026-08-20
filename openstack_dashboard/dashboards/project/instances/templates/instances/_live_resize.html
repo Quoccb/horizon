@@ -1,0 +1,60 @@
+{% extends "horizon/common/_modal_form.html" %}
+{% load i18n %}
+
+{% block form_id %}live_resize_instance_form{% endblock %}
+{% block form_action %}{% url "horizon:project:instances:live_resize" instance_id %}{% endblock %}
+
+{% block modal_id %}live_resize_instance_modal{% endblock %}
+{% block modal-header %}{% trans "Live Resize Instance" %}{% endblock %}
+
+{% block modal-body %}
+<div class="left">
+  <fieldset>
+    {% include "horizon/common/_form_fields.html" %}
+  </fieldset>
+</div>
+<div class="right">
+  <h3>{% trans "Description:" %}</h3>
+  <p>{% blocktrans trimmed %}
+    Use this action to hot-plug or hot-unplug vCPUs and RAM for the instance.
+  {% endblocktrans %}</p>
+  <dl>
+    <dt>{% trans "Current vCPUs" %}</dt>
+    <dd>{{ hotplug.current_vcpus|default:_("-") }}</dd>
+    <dt>{% trans "Current RAM" %}</dt>
+    <dd>
+      {% if hotplug.current_memory_mb %}
+        {{ hotplug.current_memory_mb }} MiB
+      {% else %}
+        {% trans "-" %}
+      {% endif %}
+    </dd>
+    <dt>{% trans "Maximum vCPUs" %}</dt>
+    <dd>{{ hotplug.max_vcpus|default:_("-") }}</dd>
+    <dt>{% trans "Maximum RAM" %}</dt>
+    <dd>
+      {% if hotplug.max_memory_mb %}
+        {{ hotplug.max_memory_mb }} MiB
+      {% else %}
+        {% trans "-" %}
+      {% endif %}
+    </dd>
+    <dt>{% trans "Virtio-mem Block" %}</dt>
+    <dd>
+      {% if hotplug.virtio_mem_block_kib %}
+        {{ hotplug.virtio_mem_block_kib }} KiB
+      {% else %}
+        {% trans "-" %}
+      {% endif %}
+    </dd>
+  </dl>
+</div>
+{% endblock %}
+
+{% block modal-footer %}
+  <a href="{% url "horizon:project:instances:index" %}" class="btn btn-default cancel">
+      {% trans "Cancel" %}
+  </a>
+  <input class="btn btn-primary" type="submit" id="live_resize_button"
+         value="{% trans "Apply" %}" />
+{% endblock %}

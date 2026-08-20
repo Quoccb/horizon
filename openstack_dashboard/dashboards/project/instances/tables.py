@@ -600,6 +600,26 @@ class ResizeLink(policy.PolicyTargetMixin, tables.LinkAction):
                 not is_deleting(instance))
 
 
+class LiveResizeLink(policy.PolicyTargetMixin, tables.LinkAction):
+    name = "live_resize"
+    verbose_name = _("Live Resize")
+    url = "horizon:project:instances:live_resize"
+    classes = ("ajax-modal", "btn-resize")
+    policy_rules = (("compute", "os_compute_api:servers:resize"),)
+    action_type = "default"
+
+    def get_link_url(self, datum):
+        return urls.reverse(self.url, args=[datum.id])
+
+    def allowed(self, request, instance):
+        hotplug = getattr(instance, 'hotplug', None) or {}
+        supports_cpu = hotplug.get('supports_cpu_hotplug')
+        supports_mem = hotplug.get('supports_memory_hotplug')
+        return ((instance.status in ACTIVE_STATES) and
+                not is_deleting(instance) and
+                (supports_cpu or supports_mem))
+
+
 class ConfirmResize(policy.PolicyTargetMixin, tables.Action):
     name = "confirm"
     verbose_name = _("Confirm Resize/Migrate")
@@ -1297,11 +1317,13 @@ class InstancesTable(tables.DataTable):
                        AttachInterface, DetachInterface, EditInstance,
                        AttachVolume, DetachVolume,
                        UpdateMetadata, DecryptInstancePassword,
+                       ChangeInstancePassword,
                        EditInstanceSecurityGroups,
                        EditPortSecurityGroups,
                        ConsoleLink, LogLink,
                        RescueInstance, UnRescueInstance,
                        TogglePause, ToggleSuspend, ToggleShelve,
-                       ResizeLink, LockInstance, UnlockInstance,
+                       ResizeLink, LiveResizeLink, LockInstance, UnlockInstance,
                        SoftRebootInstance, RebootInstance,
+                       MigrateInstance,
                        StopInstance, RebuildInstance, DeleteInstance)

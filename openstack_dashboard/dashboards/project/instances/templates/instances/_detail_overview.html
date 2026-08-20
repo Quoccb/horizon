@@ -83,6 +83,63 @@
     {% endif %}
   </dl>
 
+  {% if instance.hotplug %}
+    <h4>{% trans "Hotplug / Live Resize" %}</h4>
+    <hr class="header_rule">
+    <dl class="dl-horizontal">
+      <dt>{% trans "Enabled" %}</dt>
+      <dd>{{ instance.hotplug.enabled|yesno|capfirst }}</dd>
+      <dt>{% trans "Current vCPUs" %}</dt>
+      <dd>{{ instance.hotplug.current_vcpus|default:_("-") }}</dd>
+      <dt>{% trans "Current RAM" %}</dt>
+      <dd>
+        {% if instance.hotplug.current_memory_mb %}
+          {{ instance.hotplug.current_memory_mb|mb_float_format }}
+        {% else %}
+          {% trans "-" %}
+        {% endif %}
+      </dd>
+      <dt>{% trans "Minimum vCPUs" %}</dt>
+      <dd>{{ instance.hotplug.min_vcpus|default:_("-") }}</dd>
+      <dt>{% trans "Maximum vCPUs" %}</dt>
+      <dd>{{ instance.hotplug.max_vcpus|default:_("-") }}</dd>
+      <dt>{% trans "Minimum RAM" %}</dt>
+      <dd>
+        {% if instance.hotplug.min_memory_mb %}
+          {{ instance.hotplug.min_memory_mb|mb_float_format }}
+        {% else %}
+          {% trans "-" %}
+        {% endif %}
+      </dd>
+      <dt>{% trans "Maximum RAM" %}</dt>
+      <dd>
+        {% if instance.hotplug.max_memory_mb %}
+          {{ instance.hotplug.max_memory_mb|mb_float_format }}
+        {% else %}
+          {% trans "-" %}
+        {% endif %}
+      </dd>
+      <dt>{% trans "Virtio-mem Block" %}</dt>
+      <dd>
+        {% if instance.hotplug.virtio_mem_block_kib %}
+          {{ instance.hotplug.virtio_mem_block_kib }} KiB
+        {% else %}
+          {% trans "-" %}
+        {% endif %}
+      </dd>
+      <dt>{% trans "NUMA Nodes" %}</dt>
+      <dd>{{ instance.hotplug.numa_nodes|default:_("-") }}</dd>
+      <dt>{% trans "CPU Hotplug Supported" %}</dt>
+      <dd>{{ instance.hotplug.supports_cpu_hotplug|yesno|capfirst }}</dd>
+      <dt>{% trans "CPU Unplug Supported" %}</dt>
+      <dd>{{ instance.hotplug.supports_cpu_unplug|yesno|capfirst }}</dd>
+      <dt>{% trans "Memory Hotplug Supported" %}</dt>
+      <dd>{{ instance.hotplug.supports_memory_hotplug|yesno|capfirst }}</dd>
+      <dt>{% trans "Memory Unplug Supported" %}</dt>
+      <dd>{{ instance.hotplug.supports_memory_unplug|yesno|capfirst }}</dd>
+    </dl>
+  {% endif %}
+
     <h4>{% trans "IP Addresses" %}</h4>
     <hr class="header_rule">
     <dl class="dl-horizontal">

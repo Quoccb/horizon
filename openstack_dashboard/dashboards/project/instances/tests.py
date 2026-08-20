@@ -1471,6 +1471,37 @@ class InstanceDetailTests(InstanceTestBase):
             mock.call(helpers.IsHttpRequest(), 'mac-learning'))
 
     @helpers.create_mocks({api.neutron: ['is_extension_supported']})
+    def test_instance_details_hotplug(self):
+        server = self.servers.first()
+        server.hotplug = {
+            'enabled': True,
+            'current_vcpus': 4,
+            'current_memory_mb': 6144,
+            'min_vcpus': 2,
+            'max_vcpus': 8,
+            'min_memory_mb': 4096,
+            'max_memory_mb': 8192,
+            'virtio_mem_block_kib': 2048,
+            'numa_nodes': 2,
+            'supports_cpu_hotplug': True,
+            'supports_cpu_unplug': True,
+            'supports_memory_hotplug': True,
+            'supports_memory_unplug': True,
+        }
+
+        self.mock_is_extension_supported.return_value = False
+
+        res = self._get_instance_details(server)
+
+        self.assertContains(res, "Hotplug / Live Resize")
+        self.assertContains(res, "Current vCPUs")
+        self.assertContains(res, "Maximum vCPUs")
+        self.assertContains(res, "Virtio-mem Block")
+        self.assert_mock_multiple_calls_with_same_arguments(
+            self.mock_is_extension_supported, 2,
+            mock.call(helpers.IsHttpRequest(), 'mac-learning'))
+
+    @helpers.create_mocks({api.neutron: ['is_extension_supported']})
     def test_instance_details_fault(self):
         server = self.servers.first()
 
@@ -2296,6 +2327,69 @@ class InstanceTests2(InstanceTestBase, InstanceTableTestMixin):
         self.mock_server_get.assert_called_once_with(helpers.IsHttpRequest(),
                                                      server.id)
         self.mock_flavor_list.assert_called_once_with(helpers.IsHttpRequest())
+
+    @helpers.create_mocks({api.nova: ('server_get',)})
+    def test_instance_live_resize_get(self):
+        server = self.servers.first()
+        server.hotplug = {
+            'enabled': True,
+            'current_vcpus': 4,
+            'current_memory_mb': 6144,
+            'min_vcpus': 2,
+            'max_vcpus': 8,
+            'min_memory_mb': 4096,
+            'max_memory_mb': 8192,
+            'virtio_mem_block_kib': 2048,
+            'numa_nodes': 2,
+            'supports_cpu_hotplug': True,
+            'supports_cpu_unplug': True,
+            'supports_memory_hotplug': True,
+            'supports_memory_unplug': True,
+        }
+        self.mock_server_get.return_value = server
+
+        url = reverse('horizon:project:instances:live_resize',
+                      args=[server.id])
+        res = self.client.get(url)
+
+        self.assertTemplateUsed(res, 'project/instances/live_resize.html')
+        self.assertEqual(res.context['form'].fields['vcpus'].initial, 4)
+        self.assertEqual(res.context['form'].fields['memory_mb'].initial,
+                         6144)
+        self.mock_server_get.assert_called_once_with(
+            helpers.IsHttpRequest(), server.id)
+
+    @helpers.create_mocks({api.nova: ('server_get', 'server_live_resize')})
+    def test_instance_live_resize_post(self):
+        server = self.servers.first()
+        server.hotplug = {
+            'enabled': True,
+            'current_vcpus': 4,
+            'current_memory_mb': 6144,
+            'min_vcpus': 2,
+            'max_vcpus': 8,
+            'min_memory_mb': 4096,
+            'max_memory_mb': 8192,
+            'virtio_mem_block_kib': 2048,
+            'numa_nodes': 2,
+            'supports_cpu_hotplug': True,
+            'supports_cpu_unplug': True,
+            'supports_memory_hotplug': True,
+            'supports_memory_unplug': True,
+        }
+        self.mock_server_get.return_value = server
+        self.mock_server_live_resize.return_value = []
+
+        url = reverse('horizon:project:instances:live_resize',
+                      args=[server.id])
+        res = self.client.post(url, {'vcpus': 6, 'memory_mb': 8192})
+
+        self.assertNoFormErrors(res)
+        self.assertRedirectsNoFollow(res, INDEX_URL)
+        self.mock_server_get.assert_called_once_with(
+            helpers.IsHttpRequest(), server.id)
+        self.mock_server_live_resize.assert_called_once_with(
+            helpers.IsHttpRequest(), server.id, vcpus=6, memory_mb=8192)
 
     # TODO(amotoki): This is requred only when nova API <=2.46 is used.
     # Once server_get() uses nova API >=2.47 only, this test can be droppped.

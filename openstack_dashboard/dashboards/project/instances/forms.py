@@ -169,6 +169,179 @@ class DecryptPasswordInstanceForm(forms.SelfHandlingForm):
     def handle(self, request, data):
         return True
 
+class ChangePasswordInstanceForm(forms.SelfHandlingForm):
+    instance_id = forms.CharField(widget=forms.HiddenInput())
+    password = forms.RegexField(
+        label=_("New Password"),
+        required=True,
+        widget=forms.PasswordInput(render_value=False),
+        regex=validators.password_validator(),
+        error_messages={'invalid': validators.password_validator_msg()})
+    confirm_password = forms.CharField(
+        label=_("Confirm Password"),
+        required=True,
+        widget=forms.PasswordInput(render_value=False))
+
+    def __init__(self, request, *args, **kwargs):
+        super().__init__(request,
+                         *args,
+                         **kwargs)
+        instance_id = kwargs.get('initial', {}).get('instance_id')
+        self.fields['instance_id'].initial = instance_id
+
+    @sensitive_variables('data', 'password')
+    def handle(self, request, data):
+        try:
+            instance = data.get('instance_id')
+            password = data.get('password') or None
+            api.nova.server_change_password(request, instance, password)
+            messages.success(request, _(
+                'Successfully changed password for instance %s.') % instance)
+        except Exception:
+            redirect = reverse('horizon:project:instances:index')
+            exceptions.handle(request,
+                              _("Unable to change instance password."),
+                              redirect=redirect)
+        return True
+
+    def clean(self):
+        '''Check to make sure password fields match.'''
+        cleaned_data = super().clean()
+        if 'password' in cleaned_data:
+            if cleaned_data['password'] != cleaned_data.get(
+                    'confirm_password', None):
+                raise forms.ValidationError(_('Passwords do not match.'))
+        return cleaned_data
+
+
+class LiveResizeInstanceForm(forms.SelfHandlingForm):
+    instance_id = forms.CharField(widget=forms.HiddenInput())
+    vcpus = forms.IntegerField(
+        label=_("vCPUs"),
+        required=False,
+        min_value=0,
+    )
+    memory_mb = forms.IntegerField(
+        label=_("Memory (MiB)"),
+        required=False,
+        min_value=0,
+    )
+
+    def __init__(self, request, *args, **kwargs):
+        super().__init__(request, *args, **kwargs)
+        initial = kwargs.get('initial', {})
+        self.fields['instance_id'].initial = initial.get('instance_id')
+        self.hotplug = initial.get('hotplug') or {}
+
+        self._configure_field(
+            'vcpus',
+            'supports_cpu_hotplug',
+            'supports_cpu_unplug',
+            'current_vcpus',
+            'min_vcpus',
+            'max_vcpus',
+            _("Current vCPU count: %(current)s"),
+            _("Allowed vCPU range: %(min)s - %(max)s"),
+        )
+        self._configure_field(
+            'memory_mb',
+            'supports_memory_hotplug',
+            'supports_memory_unplug',
+            'current_memory_mb',
+            'min_memory_mb',
+            'max_memory_mb',
+            _("Current memory: %(current)s MiB"),
+            _("Allowed memory range: %(min)s MiB - %(max)s MiB"),
+        )
+
+        if ('memory_mb' in self.fields and
+                self.hotplug.get('virtio_mem_block_kib')):
+            block_kib = self.hotplug['virtio_mem_block_kib']
+            block_mib = max(1, int(block_kib) // 1024)
+            block_text = _("Virtio-mem block size: %(block)s KiB") % {
+                'block': block_kib}
+            if self.fields['memory_mb'].help_text:
+                self.fields['memory_mb'].help_text = "%s %s" % (
+                    self.fields['memory_mb'].help_text,
+                    block_text,
+                )
+            else:
+                self.fields['memory_mb'].help_text = block_text
+            self.fields['memory_mb'].widget.attrs['step'] = block_mib
+
+    def _configure_field(self, field_name, support_key, unplug_key,
+                         current_key, min_key, max_key, current_text,
+                         range_text):
+        field = self.fields[field_name]
+        support = bool(self.hotplug.get(support_key))
+        if not support:
+            del self.fields[field_name]
+            return
+
+        current_value = self.hotplug.get(current_key)
+        min_value = self.hotplug.get(min_key)
+        max_value = self.hotplug.get(max_key)
+
+        if current_value is not None:
+            field.initial = current_value
+        if current_value is not None:
+            field.help_text = current_text % {'current': current_value}
+
+        if min_value is not None and self.hotplug.get(unplug_key, True):
+            field.min_value = min_value
+        elif current_value is not None:
+            field.min_value = current_value
+
+        if max_value is not None:
+            field.max_value = max_value
+
+        if min_value is not None and max_value is not None:
+            field.help_text = "%s %s" % (
+                field.help_text or "",
+                range_text % {'min': min_value, 'max': max_value}
+            ).strip()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        vcpus = cleaned_data.get('vcpus')
+        memory_mb = cleaned_data.get('memory_mb')
+        if vcpus is None and memory_mb is None:
+            raise forms.ValidationError(
+                _("Specify at least one resource to change."))
+
+        current_vcpus = self.hotplug.get('current_vcpus')
+        current_memory_mb = self.hotplug.get('current_memory_mb')
+        if (vcpus is not None and current_vcpus is not None and
+                vcpus == current_vcpus and
+                (memory_mb is None or memory_mb == current_memory_mb)):
+            raise forms.ValidationError(
+                _("The requested values are already applied."))
+        if (memory_mb is not None and current_memory_mb is not None and
+                memory_mb == current_memory_mb and
+                (vcpus is None or vcpus == current_vcpus)):
+            raise forms.ValidationError(
+                _("The requested values are already applied."))
+        return cleaned_data
+
+    def handle(self, request, data):
+        instance = data.get('instance_id')
+        vcpus = data.get('vcpus')
+        memory_mb = data.get('memory_mb')
+        try:
+            api.nova.server_live_resize(request, instance,
+                                        vcpus=vcpus,
+                                        memory_mb=memory_mb)
+            messages.success(
+                request,
+                _('Successfully requested live resize for instance %s.')
+                % instance)
+        except Exception:
+            redirect = reverse('horizon:project:instances:index')
+            exceptions.handle(request,
+                              _("Unable to live resize instance."),
+                              redirect=redirect)
+        return True
+
 
 class AttachVolume(forms.SelfHandlingForm):
     volume = forms.ChoiceField(label=_("Volume ID"),

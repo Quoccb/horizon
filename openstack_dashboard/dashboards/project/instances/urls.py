@@ -39,6 +39,8 @@ urlpatterns = [
     re_path(INSTANCES % 'spice', views.spice, name='spice'),
     re_path(INSTANCES % 'rdp', views.rdp, name='rdp'),
     re_path(INSTANCES % 'resize', views.ResizeView.as_view(), name='resize'),
+    re_path(INSTANCES % 'live_resize', views.LiveResizeView.as_view(),
+            name='live_resize'),
     re_path(INSTANCES_KEYPAIR % 'decryptpassword',
             views.DecryptPasswordView.as_view(), name='decryptpassword'),
     re_path(INSTANCES % 'disassociate',

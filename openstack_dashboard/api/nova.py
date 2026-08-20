@@ -626,6 +626,17 @@ def server_resize(request, instance_id, flavor, disk_config=None, **kwargs):
 
 
 @profiler.trace
+def server_live_resize(request, instance_id, vcpus=None, memory_mb=None):
+    body = {}
+    if vcpus is not None:
+        body["vcpus"] = vcpus
+    if memory_mb is not None:
+        body["memory_mb"] = memory_mb
+    return _nova.novaclient(request).servers._action(
+        "liveResize", instance_id, body)
+
+
+@profiler.trace
 def server_confirm_resize(request, instance_id):
     _nova.novaclient(request).servers.confirm_resize(instance_id)
 

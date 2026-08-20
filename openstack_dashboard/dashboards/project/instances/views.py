@@ -621,6 +621,39 @@ class ResizeView(workflows.WorkflowView):
         return initial
 
 
+class LiveResizeView(forms.ModalFormView):
+    form_class = project_forms.LiveResizeInstanceForm
+    template_name = 'project/instances/live_resize.html'
+    success_url = reverse_lazy('horizon:project:instances:index')
+    page_title = _("Live Resize Instance")
+    submit_label = _("Apply")
+
+    @memoized.memoized_method
+    def get_object(self, *args, **kwargs):
+        instance_id = self.kwargs['instance_id']
+        try:
+            return api.nova.server_get(self.request, instance_id)
+        except Exception:
+            redirect = reverse("horizon:project:instances:index")
+            msg = _('Unable to retrieve instance details.')
+            exceptions.handle(self.request, msg, redirect=redirect)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['instance_id'] = self.kwargs['instance_id']
+        instance = self.get_object()
+        context['instance'] = instance
+        context['hotplug'] = getattr(instance, 'hotplug', {}) or {}
+        return context
+
+    def get_initial(self):
+        instance = self.get_object()
+        return {
+            'instance_id': self.kwargs['instance_id'],
+            'hotplug': getattr(instance, 'hotplug', {}) or {},
+        }
+
+
 class AttachInterfaceView(forms.ModalFormView):
     form_class = project_forms.AttachInterface
     template_name = 'project/instances/attach_interface.html'
