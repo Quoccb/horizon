@@ -2359,6 +2359,37 @@ class InstanceTests2(InstanceTestBase, InstanceTableTestMixin):
         self.mock_server_get.assert_called_once_with(
             helpers.IsHttpRequest(), server.id)
 
+    @helpers.create_mocks({api.nova: ('server_get',)})
+    def test_instance_live_resize_get_at_max_still_allows_unplug(self):
+        server = self.servers.first()
+        server.hotplug = {
+            'enabled': True,
+            'current_vcpus': 8,
+            'current_memory_mb': 8192,
+            'min_vcpus': 1,
+            'max_vcpus': 8,
+            'min_memory_mb': 4096,
+            'max_memory_mb': 8192,
+            'virtio_mem_block_kib': 2048,
+            'numa_nodes': 2,
+            'supports_cpu_hotplug': False,
+            'supports_cpu_unplug': True,
+            'supports_memory_hotplug': False,
+            'supports_memory_unplug': True,
+        }
+        self.mock_server_get.return_value = server
+
+        url = reverse('horizon:project:instances:live_resize',
+                      args=[server.id])
+        res = self.client.get(url)
+
+        self.assertTemplateUsed(res, 'project/instances/live_resize.html')
+        self.assertIn('vcpus', res.context['form'].fields)
+        self.assertIn('memory_mb', res.context['form'].fields)
+        self.assertEqual(res.context['form'].fields['vcpus'].initial, 8)
+        self.assertEqual(res.context['form'].fields['memory_mb'].initial,
+                         8192)
+
     @helpers.create_mocks({api.nova: ('server_get', 'server_live_resize')})
     def test_instance_live_resize_post(self):
         server = self.servers.first()

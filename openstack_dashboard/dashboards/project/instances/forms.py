@@ -273,8 +273,9 @@ class LiveResizeInstanceForm(forms.SelfHandlingForm):
                          current_key, min_key, max_key, current_text,
                          range_text):
         field = self.fields[field_name]
-        support = bool(self.hotplug.get(support_key))
-        if not support:
+        can_hotplug = bool(self.hotplug.get(support_key))
+        can_hotunplug = bool(self.hotplug.get(unplug_key))
+        if not (can_hotplug or can_hotunplug):
             del self.fields[field_name]
             return
 
