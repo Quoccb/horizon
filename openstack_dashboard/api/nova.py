@@ -102,7 +102,7 @@ class Hypervisor(base.APIDictWrapper):
     """Simple wrapper around novaclient.hypervisors.Hypervisor."""
 
     _attrs = ['manager', '_loaded', '_info', 'hypervisor_hostname', 'id',
-              'servers']
+              'servers', 'failed_builds']
 
     @property
     def servers(self):
@@ -836,6 +836,18 @@ def hypervisor_stats(request):
 @profiler.trace
 def hypervisor_search(request, query, servers=True):
     return _nova.novaclient(request).hypervisors.search(query, servers)
+
+
+@profiler.trace
+def reset_failed_builds(request, host):
+    nc = _nova.novaclient(request)
+    for hypervisor in nc.hypervisors.list():
+        if hypervisor.hypervisor_hostname == host:
+            return nc.hypervisors._action(
+                "reset_failed_builds", hypervisor.id, None)
+
+    raise nova_exceptions.NotFound(
+        _("Unable to find compute host: %s") % host)
 
 
 @profiler.trace

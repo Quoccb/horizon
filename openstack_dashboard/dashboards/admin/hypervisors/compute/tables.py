@@ -18,7 +18,6 @@ from django.utils.translation import pgettext_lazy
 from horizon import tables
 from horizon.utils import filters as utils_filters
 
-from openstack_dashboard import api
 from openstack_dashboard import policy
 
 
@@ -87,6 +86,18 @@ class MigrateMaintenanceHost(tables.LinkAction):
         return service.status == "disabled"
 
 
+class ResetFailedBuilds(policy.PolicyTargetMixin, tables.LinkAction):
+    name = "reset_failed_builds"
+    verbose_name = _("Reset Failed Builds")
+    url = "horizon:admin:hypervisors:compute:reset_failed_builds"
+    classes = ("ajax-modal", "btn-confirm")
+    policy_rules = (("compute", "os_compute_api:os-hypervisors:"
+                     "reset_failed_builds"),)
+
+    def allowed(self, request, service):
+        return service.state == "up"
+
+
 class ComputeHostFilterAction(tables.FilterAction):
     def filter(self, table, services, filter_string):
         q = filter_string.lower()
@@ -122,6 +133,8 @@ class ComputeHostTable(tables.DataTable):
                           status_choices=STATUS_CHOICES,
                           display_choices=STATUS_DISPLAY_CHOICES,
                           verbose_name=_('State'))
+    failed_builds = tables.Column('failed_builds',
+                                  verbose_name=_('Failed Builds'))
     updated_at = tables.Column('updated_at',
                                verbose_name=_('Time since update'),
                                filters=(utils_filters.parse_isotime,
@@ -142,5 +155,6 @@ class ComputeHostTable(tables.DataTable):
             EvacuateHost,
             DisableService,
             EnableService,
-            MigrateMaintenanceHost
+            MigrateMaintenanceHost,
+            ResetFailedBuilds,
         )

@@ -24,6 +24,8 @@ class AdminHypervisorsTable(tables.DataTable):
                                      verbose_name=_("Hostname"))
     hypervisor_type = tables.Column("hypervisor_type",
                                     verbose_name=_("Type"))
+    failed_builds = tables.Column("failed_builds",
+                                  verbose_name=_("Failed Builds"))
     memory_used = tables.Column('memory_mb_used',
                                 verbose_name=_("RAM (used)"),
                                 attrs={'data-type': 'size'},

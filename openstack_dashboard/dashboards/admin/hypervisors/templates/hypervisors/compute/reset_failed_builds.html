@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Reset Failed Builds" %}{% endblock %}
+{% block main %}
+  {% include 'admin/hypervisors/compute/_reset_failed_builds.html' %}
+{% endblock %}

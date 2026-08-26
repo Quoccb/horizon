@@ -74,6 +74,25 @@ class DisableServiceView(forms.ModalFormView):
         return initial
 
 
+class ResetFailedBuildsView(forms.ModalFormView):
+    form_class = project_forms.ResetFailedBuildsForm
+    template_name = 'admin/hypervisors/compute/reset_failed_builds.html'
+    context_object_name = 'compute_host'
+    success_url = reverse_lazy("horizon:admin:hypervisors:index")
+    page_title = _("Reset Failed Builds")
+    submit_label = page_title
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["compute_host"] = self.kwargs['compute_host']
+        return context
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial.update({'host': self.kwargs['compute_host']})
+        return initial
+
+
 class MigrateHostView(forms.ModalFormView):
     form_class = project_forms.MigrateHostForm
     template_name = 'admin/hypervisors/compute/migrate_host.html'

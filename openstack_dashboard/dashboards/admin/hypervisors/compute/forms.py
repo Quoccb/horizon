@@ -100,6 +100,26 @@ class DisableServiceForm(forms.SelfHandlingForm):
             return False
 
 
+class ResetFailedBuildsForm(forms.SelfHandlingForm):
+    host = forms.CharField(label=_("Host"),
+                           widget=forms.TextInput(
+                           attrs={"readonly": "readonly"}))
+
+    def handle(self, request, data):
+        try:
+            host = data["host"]
+            api.nova.reset_failed_builds(request, host)
+            msg = _("Reset failed builds for host: %s.") % host
+            messages.success(request, msg)
+            return True
+        except Exception:
+            redirect = reverse('horizon:admin:hypervisors:index')
+            msg = _("Failed to reset failed builds for host: %s.") % \
+                data["host"]
+            exceptions.handle(request, message=msg, redirect=redirect)
+            return False
+
+
 class MigrateHostForm(forms.SelfHandlingForm):
     current_host = forms.CharField(
         label=_("Current Host"),

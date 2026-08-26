@@ -190,6 +190,65 @@ class MigrateHostViewTest(test.BaseAdminViewTests):
             block_migration=True)
 
 
+class ResetFailedBuildsViewTest(test.BaseAdminViewTests):
+    def test_index(self):
+        disabled_services = [service for service in self.services.list()
+                             if (service.binary == 'nova-compute' and
+                                 service.status == 'disabled')]
+        disabled_service = disabled_services[0]
+
+        url = reverse('horizon:admin:hypervisors:compute:reset_failed_builds',
+                      args=[disabled_service.host])
+        res = self.client.get(url)
+        self.assertNoMessages()
+        self.assertTemplateUsed(
+            res, 'admin/hypervisors/compute/reset_failed_builds.html')
+
+    @test.create_mocks({api.nova: ['reset_failed_builds']})
+    def test_successful_post(self):
+        disabled_services = [service for service in self.services.list()
+                             if (service.binary == 'nova-compute' and
+                                 service.status == 'disabled')]
+        disabled_service = disabled_services[0]
+        self.mock_reset_failed_builds.return_value = True
+
+        url = reverse('horizon:admin:hypervisors:compute:reset_failed_builds',
+                      args=[disabled_service.host])
+        form_data = {'host': disabled_service.host}
+
+        res = self.client.post(url, form_data)
+        dest_url = reverse('horizon:admin:hypervisors:index')
+        self.assertNoFormErrors(res)
+        self.assertMessageCount(success=1)
+        self.assertRedirectsNoFollow(res, dest_url)
+
+        self.mock_reset_failed_builds.assert_called_once_with(
+            test.IsHttpRequest(),
+            disabled_service.host)
+
+    @test.create_mocks({api.nova: ['reset_failed_builds']})
+    def test_failing_nova_call_post(self):
+        disabled_services = [service for service in self.services.list()
+                             if (service.binary == 'nova-compute' and
+                                 service.status == 'disabled')]
+        disabled_service = disabled_services[0]
+
+        self.mock_reset_failed_builds.side_effect = self.exceptions.nova
+
+        url = reverse('horizon:admin:hypervisors:compute:reset_failed_builds',
+                      args=[disabled_service.host])
+        form_data = {'host': disabled_service.host}
+
+        res = self.client.post(url, form_data)
+        dest_url = reverse('horizon:admin:hypervisors:index')
+        self.assertMessageCount(error=1)
+        self.assertRedirectsNoFollow(res, dest_url)
+
+        self.mock_reset_failed_builds.assert_called_once_with(
+            test.IsHttpRequest(),
+            disabled_service.host)
+
+
 class DisableServiceViewTest(test.BaseAdminViewTests):
     def test_index(self):
         hypervisor = self.hypervisors.list().pop().hypervisor_hostname

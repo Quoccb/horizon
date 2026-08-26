@@ -26,6 +26,10 @@ class HypervisorViewTest(test.BaseAdminViewTests):
         hypervisors = self.hypervisors.list()
         compute_services = [service for service in self.services.list()
                             if service.binary == 'nova-compute']
+        failed_builds = {}
+        for index, hypervisor in enumerate(hypervisors):
+            hypervisor.failed_builds = index + 1
+            failed_builds[hypervisor.hypervisor_hostname] = index + 1
         self.mock_hypervisor_list.return_value = hypervisors
         self.mock_hypervisor_stats.return_value = self.hypervisors.stats
         self.mock_service_list.return_value = compute_services
@@ -36,26 +40,32 @@ class HypervisorViewTest(test.BaseAdminViewTests):
         hypervisors_tab = res.context['tab_group'].get_tab('hypervisor')
         self.assertCountEqual(hypervisors_tab._tables['hypervisors'].data,
                               hypervisors)
+        for hypervisor in hypervisors_tab._tables['hypervisors'].data:
+            self.assertEqual(
+                failed_builds[hypervisor.hypervisor_hostname],
+                hypervisor.failed_builds)
 
         host_tab = res.context['tab_group'].get_tab('compute_host')
         host_table = host_tab._tables['compute_host']
         self.assertCountEqual(host_table.data, compute_services)
-        actions_host_up = host_table.get_row_actions(host_table.data[0])
-        self.assertEqual(1, len(actions_host_up))
-        actions_host_down = host_table.get_row_actions(host_table.data[1])
-        self.assertEqual(2, len(actions_host_down))
-        self.assertEqual('evacuate', actions_host_down[0].name)
+        for service in host_table.data:
+            self.assertEqual(failed_builds.get(service.host, 0),
+                             service.failed_builds)
 
-        actions_service_enabled = host_table.get_row_actions(
-            host_table.data[1])
-        self.assertEqual('evacuate', actions_service_enabled[0].name)
-        self.assertEqual('disable', actions_service_enabled[1].name)
+        actions_host_up = [action.name for action in
+                           host_table.get_row_actions(host_table.data[0])]
+        self.assertEqual(['disable', 'reset_failed_builds'],
+                         actions_host_up)
 
-        actions_service_disabled = host_table.get_row_actions(
-            host_table.data[2])
-        self.assertEqual('enable', actions_service_disabled[0].name)
-        self.assertEqual('migrate_maintenance',
-                         actions_service_disabled[1].name)
+        actions_host_down = [action.name for action in
+                             host_table.get_row_actions(host_table.data[1])]
+        self.assertEqual(['evacuate', 'disable'], actions_host_down)
+
+        actions_service_disabled = [action.name for action in
+                                    host_table.get_row_actions(
+                                        host_table.data[2])]
+        self.assertEqual(['enable', 'migrate_maintenance',
+                          'reset_failed_builds'], actions_service_disabled)
 
         self.mock_hypervisor_list.assert_called_once_with(
             test.IsHttpRequest())
@@ -84,6 +94,64 @@ class HypervisorViewTest(test.BaseAdminViewTests):
             test.IsHttpRequest())
         self.mock_service_list.assert_called_once_with(
             test.IsHttpRequest(), binary='nova-compute')
+
+
+class ResetFailedBuildsViewTest(test.BaseAdminViewTests):
+    def test_index(self):
+        disabled_services = [service for service in self.services.list()
+                             if (service.binary == 'nova-compute' and
+                                 service.status == 'disabled')]
+        disabled_service = disabled_services[0]
+
+        url = reverse('horizon:admin:hypervisors:compute:reset_failed_builds',
+                      args=[disabled_service.host])
+        res = self.client.get(url)
+        template = 'admin/hypervisors/compute/reset_failed_builds.html'
+        self.assertTemplateUsed(res, template)
+
+    @test.create_mocks({api.nova: ['reset_failed_builds']})
+    def test_successful_post(self):
+        disabled_services = [service for service in self.services.list()
+                             if (service.binary == 'nova-compute' and
+                                 service.status == 'disabled')]
+        disabled_service = disabled_services[0]
+        self.mock_reset_failed_builds.return_value = True
+
+        url = reverse('horizon:admin:hypervisors:compute:reset_failed_builds',
+                      args=[disabled_service.host])
+        form_data = {'host': disabled_service.host}
+
+        res = self.client.post(url, form_data)
+        dest_url = reverse('horizon:admin:hypervisors:index')
+        self.assertNoFormErrors(res)
+        self.assertMessageCount(success=1)
+        self.assertRedirectsNoFollow(res, dest_url)
+
+        self.mock_reset_failed_builds.assert_called_once_with(
+            test.IsHttpRequest(),
+            disabled_service.host)
+
+    @test.create_mocks({api.nova: ['reset_failed_builds']})
+    def test_failing_nova_call_post(self):
+        disabled_services = [service for service in self.services.list()
+                             if (service.binary == 'nova-compute' and
+                                 service.status == 'disabled')]
+        disabled_service = disabled_services[0]
+
+        self.mock_reset_failed_builds.side_effect = self.exceptions.nova
+
+        url = reverse('horizon:admin:hypervisors:compute:reset_failed_builds',
+                      args=[disabled_service.host])
+        form_data = {'host': disabled_service.host}
+
+        res = self.client.post(url, form_data)
+        dest_url = reverse('horizon:admin:hypervisors:index')
+        self.assertMessageCount(error=1)
+        self.assertRedirectsNoFollow(res, dest_url)
+
+        self.mock_reset_failed_builds.assert_called_once_with(
+            test.IsHttpRequest(),
+            disabled_service.host)
 
 
 class HypervisorDetailViewTest(test.BaseAdminViewTests):

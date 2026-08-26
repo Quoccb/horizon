@@ -1,0 +1,19 @@
+{% extends "horizon/common/_modal_form.html" %}
+{% load i18n %}
+
+{% block form_id %}reset_failed_builds_form{% endblock %}
+{% block form_action %}{% url 'horizon:admin:hypervisors:compute:reset_failed_builds' compute_host %}{% endblock %}
+
+{% block modal-header %}{% trans "Reset Failed Builds" %}{% endblock %}
+
+{% block modal-body %}
+<div class="left">
+    <fieldset>
+    {% include "horizon/common/_form_fields.html" %}
+    </fieldset>
+</div>
+<div class="right">
+    <h3>{% trans "Description:" %}</h3>
+    <p>{% trans "Reset the failed build counter for this compute host. The action is available even when the nova-compute service is disabled, as long as the host is still up." %}</p>
+</div>
+{% endblock %}

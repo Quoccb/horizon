@@ -27,8 +27,22 @@ class ComputeHostTab(tabs.TableTab):
 
     def get_compute_host_data(self):
         try:
-            return nova.service_list(self.tab_group.request,
-                                     binary='nova-compute')
+            services = nova.service_list(self.tab_group.request,
+                                         binary='nova-compute')
+            failed_builds = {}
+            try:
+                hypervisors = nova.hypervisor_list(self.tab_group.request)
+                failed_builds = {
+                    hypervisor.hypervisor_hostname: int(
+                        getattr(hypervisor, 'failed_builds', 0) or 0)
+                    for hypervisor in hypervisors
+                }
+            except Exception:
+                failed_builds = {}
+
+            for service in services:
+                service.failed_builds = failed_builds.get(service.host, 0)
+            return services
         except Exception:
             msg = _('Unable to get nova services list.')
             exceptions.handle(self.tab_group.request, msg)
