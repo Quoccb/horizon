@@ -843,8 +843,9 @@ def reset_failed_builds(request, host):
     nc = _nova.novaclient(request)
     for hypervisor in nc.hypervisors.list():
         if hypervisor.hypervisor_hostname == host:
-            return nc.hypervisors._action(
-                "reset_failed_builds", hypervisor.id, None)
+            return nc.client.post(
+                "/os-hypervisors/%s/action" % hypervisor.id,
+                body={"reset_failed_builds": None})
 
     raise nova_exceptions.NotFound(
         _("Unable to find compute host: %s") % host)

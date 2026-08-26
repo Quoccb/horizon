@@ -18,6 +18,7 @@ from django.utils.translation import pgettext_lazy
 from horizon import tables
 from horizon.utils import filters as utils_filters
 
+from openstack_dashboard import api
 from openstack_dashboard import policy
 
 
